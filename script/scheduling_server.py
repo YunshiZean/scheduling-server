@@ -2,8 +2,8 @@
 """
 文件名： scheduling_server.py
 简介： 小车调度服务器
-版本： 1.0
-更新： 为验证消息增添了单独的通道
+版本： 1.5
+更新： 实现比赛相关逻辑，并且分出一辆车
 最后更新时间： 2025.8.7
 创建时间： 2025.8.24
 """
@@ -205,9 +205,9 @@ class Car:
 class CarServer:
     def __init__(self, port_up: int):
 
-        self.car1_ip = "192.168.203.10"
-        self.car2_ip = "192.168.203.18"
-        self.car3_ip = "192.168.203.37"
+        self.car1_ip = "192.168.203.18"
+        self.car2_ip = "192.168.203.37"
+        self.car3_ip = "192.168.203.47"
 
         self.port_up = port_up
         self.port_down = port_up + 1
@@ -320,77 +320,76 @@ class CarServer:
                         log_up_line(f"[断开] 小车 {car.ip} 上行断开")
                         break
                     car.update(data.decode("utf-8")) #顺便刷新心跳
-                    message += data.decode('utf-8')
-                    while '\n' in message:
-                        _message, message = message.split('\n', 1)
-                        cmd, data = self.handle_up_message(_message)
-                        if cmd == "/info":
-                            car.car_info.from_json(data)
-                            #可用信息的转换
-                            if car.car_info.current_state == CarInfo.RobotState.UNKNOWN:
-                                car.state = CarState.UNKNOWN
-                            elif car.car_info.current_state == CarInfo.RobotState.IDLE or car.car_info.current_state == CarInfo.RobotState.INIT:
-                                car.state = CarState.IDLE
-                            elif car.car_info.current_state == CarInfo.RobotState.CARRYING:
-                                car.state = CarState.CARRYING
-                            elif car.car_info.current_state == CarInfo.RobotState.CRUISE:
-                                car.state = CarState.CRUISE
-                            elif car.car_info.current_state == CarInfo.RobotState.TASK:
-                                car.state = CarState.TASK
-                            elif car.car_info.current_state == CarInfo.RobotState.POWER: #如果状态是在充电
-                                if car.state != CarState.IDLE: #如果状态不是空闲
-                                    car.state = CarState.POWER #状态改为充电
-                                    if car.car_info.power_level == CarBattery.FULL: #如果电量是满
-                                        if car.state != CarState.IDLE: #如果状态不是空闲
-                                            car.state = CarState.IDLE #状态改为空闲
-
-                            #print_info(f"[设备信息更新]\n上传:{data}\n新状态:{car.car_info.power_level}")
-                            if car.state != CarState.POWER:
-                                if car.car_info.power_level == CarBattery.ATTENTION: #如果电量低于一半，就看看有没有空闲的车辆
-                                    for other_car in self.car_map.values():
-                                        if other_car != car:
-                                            if other_car.state == CarState.IDLE:
-                                                car.grong_vjug(other_car) #那就直接夺舍过去，本体去充电
-                                                car.send("/go_power") #告诉小车去充电
-                                                car.state = CarState.POWER
-                                                break
-                        elif cmd == "/power_low":
-                            #只有当设备没有在充电的时候，才去寻找充电车辆
-                            if car.state != CarState.POWER:
-                                if car.car_info.power_level != CarBattery.LOW:
-                                    car.car_info.power_level = CarBattery.LOW
-                                    print_warn(f"[电量低] {car.ip}")
+                    # message += data.decode('utf-8')
+                    # while '\n' in message:
+                    #     _message, message = message.split('\n', 1)
+                    #     cmd, data = self.handle_up_message(_message)
+                    #     if cmd == "/info":
+                    #         car.car_info.from_json(data)
+                    #         #可用信息的转换
+                    #         if car.car_info.current_state == CarInfo.RobotState.UNKNOWN:
+                    #             car.state = CarState.UNKNOWN
+                    #         elif car.car_info.current_state == CarInfo.RobotState.IDLE or car.car_info.current_state == CarInfo.RobotState.INIT:
+                    #             car.state = CarState.IDLE
+                    #         elif car.car_info.current_state == CarInfo.RobotState.CARRYING:
+                    #             car.state = CarState.CARRYING
+                    #         elif car.car_info.current_state == CarInfo.RobotState.CRUISE:
+                    #             car.state = CarState.CRUISE
+                    #         elif car.car_info.current_state == CarInfo.RobotState.TASK:
+                    #             car.state = CarState.TASK
+                    #         elif car.car_info.current_state == CarInfo.RobotState.POWER: #如果状态是在充电
+                    #             if car.state != CarState.IDLE: #如果状态不是空闲
+                    #                 car.state = CarState.POWER #状态改为充电
+                    #                 if car.car_info.power_level == CarBattery.FULL: #如果电量是满
+                    #                     if car.state != CarState.IDLE: #如果状态不是空闲
+                    #                         car.state = CarState.IDLE #状态改为空闲
+                    #         if car.state != CarState.POWER:
+                    #             if car.car_info.power_level == CarBattery.ATTENTION: #如果电量低于一半，就看看有没有空闲的车辆
+                    #                 for other_car in self.car_map.values():
+                    #                     if other_car != car:
+                    #                         if other_car.state == CarState.IDLE:
+                    #                             car.grong_vjug(other_car) #那就直接夺舍过去，本体去充电
+                    #                             car.send("/go_power") #告诉小车去充电
+                    #                             car.state = CarState.POWER
+                    #                             break
+                        # elif cmd == "/power_low":
+                        #     #只有当设备没有在充电的时候，才去寻找充电车辆
+                        #     if car.state != CarState.POWER:
+                        #         if car.car_info.power_level != CarBattery.LOW:
+                        #             car.car_info.power_level = CarBattery.LOW
+                        #             print_warn(f"[电量低] {car.ip}")
                                 #找可用车辆，懒得搞算法了，直接循环三次吧，又不是编译型语言，文件打点就大点
                                 #管它黑代码白代码，能实现功能就是好代码
-                                i = True
-                                for other_car in self.car_map.values():
-                                    if other_car != car:
-                                        if other_car.state == CarState.IDLE:
-                                            car.grong_vjug(other_car)
-                                            car.send("/go_power")  # 告诉小车去充电
-                                            i = False
-                                            break
-                                if i:
-                                    for other_car in self.car_map.values():
-                                        if other_car != car:
-                                            if other_car.car_info.power_level == CarBattery.ENOUGH or other_car.car_info.power_level == CarBattery.FULL:
-                                                car.grong_vjug(other_car)
-                                                car.send("/go_power")  # 告诉小车去充电
-                                                i = False
-                                                break
-                                if i:
-                                    for other_car in self.car_map.values():
-                                        if other_car != car:
-                                            if other_car.state == CarState.CRUISE:
-                                                car.grong_vjug(other_car)
-                                                car.send("/go_power")  # 告诉小车去充电
-                                                i = False
-                                                break
-                                if i:
-                                    #如果搞完这些尝试，还是没有可用车辆，那没得办法了，到下一站后去充电吧，游客什么的 life find way out
-                                    car.send("/go_power")
-                                    i = False
-                                    break
+                                # i = True
+                                # for other_car in self.car_map.values():
+                                #     if other_car != car:
+                                #         if other_car.state == CarState.IDLE:
+                                #             car.grong_vjug(other_car)
+                                #             car.send("/go_power")  # 告诉小车去充电
+                                #             i = False
+                                #             break
+                                # if i:
+                                #     for other_car in self.car_map.values():
+                                #         if other_car != car:
+                                #             if other_car.car_info.power_level == CarBattery.ENOUGH or other_car.car_info.power_level == CarBattery.FULL:
+                                #                 car.grong_vjug(other_car)
+                                #                 car.send("/go_power")  # 告诉小车去充电
+                                #                 i = False
+                                #                 break
+                                # if i:
+                                #     for other_car in self.car_map.values():
+                                #         if other_car != car:
+                                #             if other_car.state == CarState.CRUISE:
+                                #                 car.grong_vjug(other_car)
+                                #                 car.send("/go_power")  # 告诉小车去充电
+                                #                 i = False
+                                #                 break
+                                # if i:
+                                #     #如果搞完这些尝试，还是没有可用车辆，那没得办法了，到下一站后去充电吧，游客什么的 life find way out
+                                #     car.grong_vjug(self.car_map[self.car2_ip])
+                                #     car.send("/go_power")
+                                #     i = False
+                                #     break
             except Exception as e:
                 log_up_line(f"[接收错误] {car.ip}: {e}")
 
@@ -506,7 +505,8 @@ if __name__ == "__main__":
                 handle_cmd_select("3", "/task 5")
             elif keyboard.is_pressed("*"):
                 time.sleep(0.05)
-                while keyboard.is_pressed("*"): continue
+                while keyboard.is_pressed("*"):
+                    time.sleep(0.01)
                 while True:
                     if keyboard.is_pressed('7'):
                         handle_cmd_select("-1", "/task 2")
@@ -517,12 +517,14 @@ if __name__ == "__main__":
                     elif keyboard.is_pressed("-"):
                         handle_cmd_select("-1", "/task 5")
                     elif keyboard.is_pressed("*"):
-                        while keyboard.is_pressed("*"): pass
+                        while keyboard.is_pressed("*"):
+                            time.sleep(0.01)
                         break
                     time.sleep(0.1)
             elif keyboard.is_pressed('/'):
                 time.sleep(0.05)
-                while keyboard.is_pressed("/"): continue
+                while keyboard.is_pressed("/"):
+                    time.sleep(0.01)
                 clear_input_buffer()
                 while True:
                     input_cmd = input("INPUT：")
@@ -530,8 +532,11 @@ if __name__ == "__main__":
                         break
                     car,cmd = input_cmd.split(" ",1)
                     print(car,cmd)
+                    if cmd == "/power_low":
+                        server.car_map[server.car2_ip].send("/carry power")
+                        continue
                     handle_cmd_select(car, cmd)
-            time.sleep(0.1)
+            time.sleep(0.05)
     except KeyboardInterrupt:
         server.stop()
         broadcaster.stop()
