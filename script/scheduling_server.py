@@ -2,10 +2,10 @@
 """
 文件名： scheduling_server.py
 简介： 小车调度服务器
-版本： 1.5
-更新： 实现比赛相关逻辑，并且分出一辆车
+版本： 2.0
+更新： 将控制改成原先的回车型，同时修复了连接问题
 最后更新时间： 2025.8.7
-创建时间： 2025.8.24
+创建时间： 2025.8.29
 """
 
 import socket
@@ -45,18 +45,18 @@ def clear_input_buffer():
 init(autoreset=True)
 
 def print_error(msg):
-    print(os.path.basename(__file__) + Fore.RED + f": [error:{time.time()}] " + str(msg))
+    print(os.path.basename(__file__) + Fore.RED + f": [error:{time.time()}] " + str(msg) + "\n")
     # log_line()
 
 def print_success(msg):
-    print(os.path.basename(__file__) + Fore.GREEN + ": [success:{time.time()}] " + str(msg))
+    print(os.path.basename(__file__) + Fore.GREEN + ": [success:{time.time()}] " + str(msg) + "\n")
 
 def print_warn(msg):
     print(os.path.basename(__file__) + Fore.YELLOW + ": [warn:{time.time()}] " + str(msg))
     # log_line()
 
 def print_info(msg):
-    print(os.path.basename(__file__) + Fore.WHITE + f": [info:{time.time()}] " + str(msg))
+    print(os.path.basename(__file__) + Fore.WHITE + f": [info:{time.time()}] " + str(msg) + "\n")
 
 def get_local_ip():
     try:
@@ -425,26 +425,26 @@ class CarServer:
 
 
 
-def handle_cmd_select(car_id:str,_cmd:str):
+def handle_cmd_select(_car_id:str,_cmd:str):
     if _cmd is None or _cmd == "/":
         print_error("格式错误")
         return
-    if car_id == "1":
+    if _car_id == "1":
         try:
             server.car_map[server.car1_ip].send(_cmd)
         except Exception as e:
             print_error(f"1发送失败：{e}")
-    elif car_id == "2":
+    elif _car_id == "2":
         try:
             server.car_map[server.car2_ip].send(_cmd)
         except Exception as e:
             print_error(f"2发送失败：{e}")
-    elif car_id == "3":
+    elif _car_id == "3":
         try:
             server.car_map[server.car3_ip].send(_cmd)
         except Exception as e:
             print_error(f"3发送失败：{e}")
-    elif car_id == "-1":
+    elif _car_id == "-1":
         try:
             server.car_map[server.car1_ip].send(_cmd)
         except Exception as e:
@@ -476,67 +476,57 @@ if __name__ == "__main__":
 
     time.sleep(5)
     try:
+        car_id = ""
+        cmd = ""
         while True:
-            if keyboard.is_pressed('1'):
-                handle_cmd_select("1", "/task 2")
-            elif keyboard.is_pressed("2"):
-                handle_cmd_select("1", "/task 3")
-            elif keyboard.is_pressed("3"):
-                handle_cmd_select("1", "/task 4")
-            elif keyboard.is_pressed("."):
-                handle_cmd_select("1", "/task 5")
+            Is_cmd = False
+            input_cmd = input("请输入指令：")
+            try:
+                car_id, cmd = input_cmd.split(" ",1)
+                Is_cmd = True
+            except:
+                Is_cmd = False
+            print(input_cmd)
+            if Is_cmd: #如果输入了小车id
+                handle_cmd_select(car_id, cmd) #就去处理
+            else: #否则则是特殊控制指令，统一处理
+                #一号小车控制
+                if input_cmd == "1":
+                    handle_cmd_select("1", "/task 2")
+                elif input_cmd == "2":
+                    handle_cmd_select("1", "/task 3")
+                elif input_cmd == "3":
+                    handle_cmd_select("1", "/task 4")
+                elif input_cmd == ".":
+                    handle_cmd_select("1", "/task 5")
+                #二号小车控制
+                if input_cmd == "4":
+                    handle_cmd_select("2", "/task 2")
+                elif input_cmd == "5":
+                    handle_cmd_select("2", "/task 3")
+                elif input_cmd == "6":
+                    handle_cmd_select("2", "/task 4")
+                elif input_cmd == "+":
+                    handle_cmd_select("2", "/task 5")
+                #三号小车控制
+                if input_cmd == "7":
+                    handle_cmd_select("2", "/task 2")
+                elif input_cmd == "8":
+                    handle_cmd_select("2", "/task 3")
+                elif input_cmd == "9":
+                    handle_cmd_select("2", "/task 4")
+                elif input_cmd == "-":
+                    handle_cmd_select("2", "/task 5")
 
-            elif keyboard.is_pressed('4'):
-                handle_cmd_select("2", "/task 2")
-            elif keyboard.is_pressed("5"):
-                handle_cmd_select("2", "/task 3")
-            elif keyboard.is_pressed("6"):
-                handle_cmd_select("2", "/task 4")
-            elif keyboard.is_pressed("+"):
-                handle_cmd_select("2", "/task 5")
+                #特殊触发事件
+                if input_cmd == "/power_low":
+                    handle_cmd_select("2", "/task 6")
+                if input_cmd == "/ID":
+                    handle_cmd_select("3", "/task 3")
+                    handle_cmd_select("2", "/task 4")
+                    handle_cmd_select("1", "/task 7") #这个点位还没定
 
-            elif keyboard.is_pressed('7'):
-                handle_cmd_select("3", "/task 2")
-            elif keyboard.is_pressed("8"):
-                handle_cmd_select("3", "/task 3")
-            elif keyboard.is_pressed("9"):
-                handle_cmd_select("3", "/task 4")
-            elif keyboard.is_pressed("-"):
-                handle_cmd_select("3", "/task 5")
-            elif keyboard.is_pressed("*"):
-                time.sleep(0.05)
-                while keyboard.is_pressed("*"):
-                    time.sleep(0.01)
-                while True:
-                    if keyboard.is_pressed('7'):
-                        handle_cmd_select("-1", "/task 2")
-                    elif keyboard.is_pressed("8"):
-                        handle_cmd_select("-1", "/task 3")
-                    elif keyboard.is_pressed("9"):
-                        handle_cmd_select("-1", "/task 4")
-                    elif keyboard.is_pressed("-"):
-                        handle_cmd_select("-1", "/task 5")
-                    elif keyboard.is_pressed("*"):
-                        while keyboard.is_pressed("*"):
-                            time.sleep(0.01)
-                        break
-                    time.sleep(0.1)
-            elif keyboard.is_pressed('/'):
-                time.sleep(0.05)
-                while keyboard.is_pressed("/"):
-                    time.sleep(0.01)
-                clear_input_buffer()
-                while True:
-                    input_cmd = input("INPUT：")
-                    if input_cmd == "/":
-                        break
-                    car,cmd = input_cmd.split(" ",1)
-                    print(car,cmd)
-                    if cmd == "/power_low":
-                        server.car_map[server.car2_ip].send("/carry power")
-                        continue
-                    handle_cmd_select(car, cmd)
-            time.sleep(0.05)
+
     except KeyboardInterrupt:
         server.stop()
         broadcaster.stop()
