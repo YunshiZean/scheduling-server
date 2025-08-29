@@ -320,6 +320,7 @@ class CarServer:
                         log_up_line(f"[断开] 小车 {car.ip} 上行断开")
                         break
                     car.update(data.decode("utf-8")) #顺便刷新心跳
+                    #由于项目需要，这里不再需要处理任何上行 信息
                     # message += data.decode('utf-8')
                     # while '\n' in message:
                     #     _message, message = message.split('\n', 1)
@@ -510,13 +511,13 @@ if __name__ == "__main__":
                     handle_cmd_select("2", "/task 5")
                 #三号小车控制
                 if input_cmd == "7":
-                    handle_cmd_select("2", "/task 2")
+                    handle_cmd_select("3", "/task 2")
                 elif input_cmd == "8":
-                    handle_cmd_select("2", "/task 3")
+                    handle_cmd_select("3", "/task 3")
                 elif input_cmd == "9":
-                    handle_cmd_select("2", "/task 4")
+                    handle_cmd_select("3", "/task 4")
                 elif input_cmd == "-":
-                    handle_cmd_select("2", "/task 5")
+                    handle_cmd_select("3", "/task 5")
 
                 #特殊触发事件
                 if input_cmd == "/power_low":
